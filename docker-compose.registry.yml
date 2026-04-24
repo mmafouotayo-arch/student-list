@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+
+  registry:
+    image: registry:2
+    container_name: registry
+    ports:
+      - "5001:5000"
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    networks:
+      - registry-network
+
+  registry-ui:
+    image: joxit/docker-registry-ui:latest
+    container_name: registry-ui
+    ports:
+      - "8888:80"
+    environment:
+      REGISTRY_URL: http://localhost:8888
+      DELETE_IMAGES: "true"
+      REGISTRY_TITLE: "Student List Registry"
+      SINGLE_REGISTRY: "true"
+      NGINX_PROXY_PASS_URL: http://registry:5000
+    depends_on:
+      - registry
+    networks:
+      - registry-network
+
+networks:
+  registry-network:
+    driver: bridge
