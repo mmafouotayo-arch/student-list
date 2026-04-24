@@ -78,7 +78,7 @@ curl -u toto:python -X GET http://localhost:5000/pozos/api/v1.0/get_student_ages
 
 **Résultat :**
 
-![Test API curl](screenshots/curl initial.jpeg)
+![Test API curl](screenshots/curl.jpeg)
 
 ---
 
