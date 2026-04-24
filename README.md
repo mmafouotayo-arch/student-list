@@ -1,6 +1,8 @@
 # Student List – Mini Projet Docker
 
-Application simple de liste d'étudiants avec une API Flask et un frontend PHP/Apache, conteneurisée avec Docker.
+> **Auteur** : mmafouotayo-arch  
+> **Entreprise** : CCNTechnologies  
+> **Objectif** : Conteneuriser une application de liste d'étudiants avec Docker (API Flask + Frontend PHP)
 
 ---
 
@@ -10,8 +12,8 @@ Application simple de liste d'étudiants avec une API Flask et un frontend PHP/A
 [Navigateur] → [PHP/Apache :8080] → [API Flask :5000] → [student_age.json]
 ```
 
-Deux services Docker communiquent via un réseau bridge interne (`student-network`) :
-- **api** : API REST Flask avec authentification basique
+Deux services Docker communiquent via un réseau bridge interne `student-network` :
+- **api** : API REST Flask avec authentification basique (user: `toto`, password: `python`)
 - **website** : Interface web PHP/Apache
 
 ---
@@ -19,25 +21,31 @@ Deux services Docker communiquent via un réseau bridge interne (`student-networ
 ## Structure du projet
 
 ```
-.
-├── Dockerfile            # Image de l'API Flask
-├── docker-compose.yml    # Orchestration des deux services
-├── student_age.py        # Code source de l'API
-├── student_age.json      # Données des étudiants
-├── requirements.txt      # Dépendances Python
+student-list/
+├── docker-compose.yml           # Orchestration des deux services principaux
+├── docker-compose.registry.yml  # Registre privé Docker + interface web
+├── simple_api/
+│   ├── Dockerfile               # Image de l'API Flask
+│   ├── student_age.py           # Code source de l'API
+│   ├── student_age.json         # Données des étudiants
+│   └── requirements.txt         # Dépendances Python
 └── website/
-    └── index.php         # Interface web PHP
+    └── index.php                # Interface web PHP
 ```
 
 ---
 
-## Dockerfile – Explication
+## Partie 1 – Build et Test (7 points)
+
+### Dockerfile
 
 ```dockerfile
 FROM python:3.11-slim
 LABEL maintainer="CCNTechnologies <contact@ccntechnologies.cm>"
 
-RUN apt-get update -y && apt-get install -y python3-dev libsasl2-dev libldap2-dev libssl-dev
+RUN apt-get update -y && \
+    apt-get install -y gcc python3-dev libsasl2-dev libldap2-dev libssl-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY student_age.py /student_age.py
 COPY requirements.txt /requirements.txt
@@ -50,22 +58,43 @@ EXPOSE 5000
 CMD ["python3", "./student_age.py"]
 ```
 
-- Image légère `python:3.11-slim`
-- Installation des dépendances système et Python
-- Le dossier `/data` est déclaré en volume pour la persistance du JSON
-- Port 5000 exposé
+**Explications :**
+- Image de base légère `python:3.11-slim`
+- `gcc` ajouté pour compiler `python-ldap`
+- Le dossier `/data` est déclaré en volume pour la persistance du fichier JSON
+- Port `5000` exposé pour l'API
+
+### Build et lancement
+
+```bash
+docker-compose up -d --build
+```
+
+### Test de l'API
+
+```bash
+curl -u toto:python -X GET http://localhost:5000/pozos/api/v1.0/get_student_ages
+```
+
+**Résultat :**
+
+![Test API curl](screenshots/api-curl.png)
 
 ---
 
-## docker-compose.yml – Explication
+## Partie 2 – Infrastructure As Code (5 points)
+
+### docker-compose.yml
 
 ```yaml
+version: '3.8'
+
 services:
   api:
     image: student-list-api:latest
-    build: .
+    build: ./simple_api
     volumes:
-      - ./student_age.json:/data/student_age.json
+      - ./simple_api/student_age.json:/data/student_age.json
     ports:
       - "5000:5000"
     networks:
@@ -90,72 +119,41 @@ networks:
     driver: bridge
 ```
 
-- Le service `website` dépend du service `api` (démarrage ordonné)
+**Explications :**
+- `depends_on` garantit que l'API démarre avant le site web
 - Les credentials sont injectés via variables d'environnement
-- Les deux services partagent le réseau `student-network`
+- Le réseau `student-network` permet la communication entre les conteneurs
+- `./website:/var/www/html` monte le fichier PHP dans Apache
+
+### Résultat – Site web
+
+![Site web student list](screenshots/website.png)
 
 ---
 
-## Déploiement
+## Partie 3 – Registre Docker Privé (4 points)
 
-### 1. Préparer le dossier website
-
-```bash
-mkdir -p website
-cp index.php website/
-```
-
-### 2. Construire et démarrer
+### Lancement du registre
 
 ```bash
-docker-compose up -d --build
-```
+docker-compose -f docker-compose.registry.yml up -d
 
-### 3. Tester l'API directement
-
-```bash
-curl -u toto:python -X GET http://localhost:5000/pozos/api/v1.0/get_student_ages
-```
-
-Réponse attendue :
-```json
-{
-  "student_ages": {
-    "alice": "12",
-    "bob": "13"
-  }
-}
-```
-
-### 4. Accéder au site web
-
-Ouvrir http://localhost:8080 puis cliquer sur **"List Student"**
-
----
-
-## Registre Docker privé (optionnel)
-
-```bash
-# Lancer un registre privé local
-docker run -d -p 5001:5000 --name registry registry:2
-
-# Lancer l'interface web du registre
-docker run -d -p 8888:80 \
-  -e REGISTRY_URL=http://localhost:5001 \
-  joxit/docker-registry-ui:latest
-
-# Tagger et pousser l'image
 docker tag student-list-api:latest localhost:5001/student-list-api:latest
 docker push localhost:5001/student-list-api:latest
 ```
+
+### Résultat – Interface du registre privé
+
+![Registre Docker privé](screenshots/registry.png)
 
 ---
 
 ## Bonnes pratiques appliquées
 
-- Image de base légère (`slim`)
+- Image de base légère (`python:3.11-slim`)
 - Nettoyage du cache apt après installation
-- Variables d'environnement pour les secrets (pas de credentials codés en dur)
+- Variables d'environnement pour les credentials
 - Volume pour la persistance des données
-- Réseau dédié au projet
-- `depends_on` pour l'ordre de démarrage des services
+- Réseau dédié par projet
+- `depends_on` pour l'ordre de démarrage
+- Registre privé pour stocker les images en interne
