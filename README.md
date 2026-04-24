@@ -78,7 +78,7 @@ curl -u toto:python -X GET http://localhost:5000/pozos/api/v1.0/get_student_ages
 
 **Résultat :**
 
-![Test API curl](screenshots/api-curl.png)
+![Test API curl](screenshots/curl initial.jpeg)
 
 ---
 
@@ -127,7 +127,7 @@ networks:
 
 ### Résultat – Site web
 
-![Site web student list](screenshots/website.png)
+![Site web student list](screenshots/webview.jpeg)
 
 ---
 
@@ -144,7 +144,7 @@ docker push localhost:5001/student-list-api:latest
 
 ### Résultat – Interface du registre privé
 
-![Registre Docker privé](screenshots/registry.png)
+![Registre Docker privé](screenshots/registre.jpeg)
 
 ---
 
